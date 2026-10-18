@@ -368,6 +368,8 @@ namespace ResourceMonitoring
             string save = TempFile();
             string stopAt = Path.Combine(Path.GetDirectoryName(save) ?? ".", "temps.stop");
             byte quiet = 0;                      // putaran tanpa dashboard yang terlihat
+            int tzTick = 0;                      // penjaga zona waktu (kolektor berjalan sebagai Administrator)
+            try { Dbg.Log("TEMP-tz aktif, zona=" + TimeZoneInfo.Local.Id); } catch { }
             while (true)
             {
                 List<Ts> s = null;
@@ -397,6 +399,33 @@ namespace ResourceMonitoring
                     File.Move(tmp, save);
                 }
                 catch { /* tidak boleh mati kemana pun; dashboard hanya melihat file usang */ }
+                // penjaga zona waktu (berjalan tiap ~2 menit; kolektor = Administrator, jadi tzutil diizinkan).
+                // Target default WIB; bisa diganti lewat tz.txt (satu baris = ID TimeZoneInfo).
+                tzTick++;
+                if (tzTick >= 24)
+                {
+                    tzTick = 0;
+                    try
+                    {
+                        string target = "SE Asia Standard Time";
+                        string tf = Path.Combine(Path.GetDirectoryName(save) ?? ".", "tz.txt");
+                        try { if (File.Exists(tf)) { string v = File.ReadAllText(tf).Trim(); if (v != "") target = v; } } catch { }
+                        // BACA FRESH dari registry — TimeZoneInfo.Local di-cache per-proses .NET (kasus nyata:
+                        // koreksi kedua tidak jalan karena cache masih zona lama)
+                        string cur = "";
+                        try { cur = Convert.ToString(Microsoft.Win32.Registry.GetValue(@"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\TimeZoneInformation", "TimeZoneKeyName", "")); } catch { }
+                        if (string.IsNullOrEmpty(cur)) cur = TimeZoneInfo.Local.Id;
+                        if (!string.Equals(cur, target, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Dbg.Log("TEMP-tz koreksi " + cur + " -> " + target);
+                            ProcessStartInfo si = new ProcessStartInfo("cmd.exe", "/c tzutil /s \"" + target + "\"");
+                            si.UseShellExecute = false;
+                            si.CreateNoWindow = true;
+                            using (Process pp = Process.Start(si)) pp.WaitForExit(6000);
+                        }
+                    }
+                    catch { }
+                }
                 // berhenti: dashboard tidak RUN (90 detik beruntun) — atau temps.stop dibuat pengguna
                 try
                 {
@@ -1984,7 +2013,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             lblNpuD = MkLabel(cardG, "", 18, 152, 294, 18, CSub, 8.75f, FontStyle.Regular);
             lblCpuInfo = MkLabel(cardG, "", 18, 186, 294, 20, CText, 9.5f, FontStyle.Bold);
 
-            MkLabel(this, "Resource Monitoring v1.3.0 \u00B7 C# WinForms native", 970, 782, 340, 16, CDim, 8.5f, FontStyle.Regular).TextAlign = ContentAlignment.MiddleRight;
+            MkLabel(this, "Resource Monitoring v1.3.1 \u00B7 C# WinForms native", 970, 782, 340, 16, CDim, 8.5f, FontStyle.Regular).TextAlign = ContentAlignment.MiddleRight;
         }
 
         void StyleButton(Button b)

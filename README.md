@@ -75,9 +75,17 @@ Dashboard pemantau laptop **native Windows 11** (C# WinForms, .NET Framework baw
 - **Menu tray "Buka riwayat (CSV)"** → membuka folder `history` langsung dari ikon tray.
 - Versi 1.3.0 (exe/installer/manifest).
 
+## Pembaruan 2026-10-18 (v1.3.1 — Penjaga zona waktu otomatis di kolektor)
+
+- **Kolektor kini juga penjaga zona waktu**: tiap ~2 menit membaca zona dari registry (fresh — `TimeZoneInfo.Local` di-cache per-proses, pernah bikin tes gagal) dan menjalankan `tzutil /s` bila menyimpang dari target. Target default **SE Asia Standard Time (WIB)**; bisa diubah lewat `tz.txt` (satu baris berisi TimeZoneInfo ID). Kolektor sudah berjalan sebagai Administrator, jadi tidak perlu task/UAC tambahan.
+- Terverifikasi dua arah di mesin ini: `TEMP-tz aktif, zona=Bangladesh...` → `TEMP-tz koreksi Bangladesh -> SE Asia` dalam 2 menit, dan sebaliknya saat target diubah.
+- Konteks laptop ini: zona pernah ditarik ke Dhaka berulang oleh auto-timezone/lokasi (sisa cache VPN OpenVPN) — `tzautoupdate` + `lfsvc` sudah dimatikan; penjaga ini lapisan terakhir agar kasus serupa self-heal.
+- Versi 1.3.1 (exe/installer/manifest).
+
 ## File
 
-- `Dashboard.cs` — seluruh sumber (±2900 baris, termasuk class Lang)
+- `Dashboard.cs` — seluruh sumber (±2950 baris, termasuk class Lang)
+
 
 
 - `app.manifest` — supportedOS + dpiAware (WAJIB)
