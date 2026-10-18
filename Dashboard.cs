@@ -607,6 +607,11 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             P("fly.proc", "PROSES TERATAS", "TOP PROCESSES");
             P("fly.histcap", "Suhu 60 menit terakhir", "Temperature, last 60 min");
             P("menu.history", "Buka riwayat (CSV)", "Open history (CSV)");
+            P("menu.autopause", "Auto-pause OneDrive (saat beban berat)", "Auto-pause OneDrive (under heavy load)");
+            P("ap.pause.title", "OneDrive dijeda otomatis", "OneDrive auto-paused");
+            P("ap.pause.body", "Sync berat ({0:0}% CPU) — dijeda {1} menit supaya laptop tenang.", "Heavy sync ({0:0}% CPU) — paused for {1} minutes to cool down.");
+            P("ap.resume.title", "OneDrive aktif kembali", "OneDrive resumed");
+            P("ap.resume.body", "Sinkronisasi dilanjutkan otomatis.", "Sync resumed automatically.");
             P("proc.cpu", "CPU: {0}", "CPU: {0}");
             P("proc.ram", "RAM: {0}", "RAM: {0}");
             P("alert.temp.title", "Suhu tinggi", "High temperature");
@@ -1695,6 +1700,12 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
         // riwayat: ring buffer suhu (60 mnt @30 dtk) + nilai utk CSV
         List<double> tempHist = new List<double>();
         double tempMinVal = 0, tempMaxVal = 0, ramPctVal = 0, battWNum = 0;
+        // auto-pause OneDrive saat sync berat (toggle di menu tray; disimpan di autopause.txt)
+        bool apEnabled = true;
+        bool apLoaded = false;
+        double odCpuPct = 0;
+        int odHeavySamples = 0;
+        DateTime odPausedUntil = DateTime.MinValue, odCooldownUntil = DateTime.MinValue;
         string diskShort = "C: \u2014";
         SlimBar bar;
         HashSet<string> physCache = new HashSet<string>();
@@ -2013,7 +2024,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             lblNpuD = MkLabel(cardG, "", 18, 152, 294, 18, CSub, 8.75f, FontStyle.Regular);
             lblCpuInfo = MkLabel(cardG, "", 18, 186, 294, 20, CText, 9.5f, FontStyle.Bold);
 
-            MkLabel(this, "Resource Monitoring v1.3.1 \u00B7 C# WinForms native", 970, 782, 340, 16, CDim, 8.5f, FontStyle.Regular).TextAlign = ContentAlignment.MiddleRight;
+            MkLabel(this, "Resource Monitoring v1.4.0 \u00B7 C# WinForms native", 970, 782, 340, 16, CDim, 8.5f, FontStyle.Regular).TextAlign = ContentAlignment.MiddleRight;
         }
 
         void StyleButton(Button b)
@@ -2294,6 +2305,11 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             miFull.Click += delegate { ShowDashboard(); };
             ToolStripMenuItem miBar = new ToolStripMenuItem(Lang.T("menu.bar"));
             miBar.Click += delegate { EnterBarMode(); };
+            LoadAutopauseSetting();
+            ToolStripMenuItem miAP = new ToolStripMenuItem(Lang.T("menu.autopause"));
+            miAP.Checked = apEnabled;
+            miAP.CheckOnClick = true;
+            miAP.Click += delegate { apEnabled = miAP.Checked; SaveAutopauseSetting(); };
             ToolStripMenuItem miHist = new ToolStripMenuItem(Lang.T("menu.history"));
             miHist.Click += delegate { OpenHistory(); };
             ToolStripMenuItem miTask = new ToolStripMenuItem(Lang.T("menu.taskbar"));
@@ -2304,6 +2320,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             m.Items.Add(miBar);
             m.Items.Add(miTask);
             m.Items.Add(miHist);
+            m.Items.Add(miAP);
             m.Items.Add(new ToolStripSeparator());
             // toggle bahasa: labelnya memakai bahasa TUJUAN supaya jelas bagi siapa pun
             string target = Lang.Mode == "en" ? "id" : "en";
@@ -2460,6 +2477,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                 if (flyout != null && !flyout.IsDisposed && flyout.Spark != null) flyout.Spark.Invalidate();
             }
             if (tick % 60 == 0) WriteHistoryLine();
+            if (tick % 5 == 0) CheckAutoPauseOneDrive();
 
             if (taskbarMode) UpdateTaskbarWidget();
         }
@@ -2639,6 +2657,99 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             if (btnTemp != null) btnTemp.Visible = false;
         }
 
+        // ================= AUTO-PAUSE ONEDRIVE =================
+        void LoadAutopauseSetting()
+        {
+            if (apLoaded) return;
+            apLoaded = true;
+            try
+            {
+                string f = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "autopause.txt");
+                if (File.Exists(f))
+                {
+                    string v = File.ReadAllText(f).Trim();
+                    apEnabled = v != "0";
+                }
+            }
+            catch { }
+        }
+
+        void SaveAutopauseSetting()
+        {
+            try { File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "autopause.txt"), apEnabled ? "1" : "0"); } catch { }
+        }
+
+        static void KillOneDrive()
+        {
+            string[] names = new string[] { "OneDrive", "OneDrive.Sync.Service", "FileSyncHelper", "FileCoAuth" };
+            foreach (string n in names)
+            {
+                try
+                {
+                    foreach (Process p in Process.GetProcessesByName(n))
+                    {
+                        try { p.Kill(); } catch { }
+                        try { p.Dispose(); } catch { }
+                    }
+                }
+                catch { }
+            }
+        }
+
+        static void StartOneDrive()
+        {
+            try
+            {
+                string p = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft OneDrive", "OneDrive.exe");
+                if (File.Exists(p))
+                {
+                    ProcessStartInfo si = new ProcessStartInfo(p, "/background") { UseShellExecute = true };
+                    Process.Start(si);
+                }
+            }
+            catch { }
+        }
+
+        void CheckAutoPauseOneDrive()
+        {
+            try
+            {
+                LoadAutopauseSetting();
+                DateTime now = DateTime.Now;
+                if (odPausedUntil != DateTime.MinValue)
+                {
+                    if (now >= odPausedUntil)
+                    {
+                        odPausedUntil = DateTime.MinValue;
+                        odCooldownUntil = now.AddMinutes(30);
+                        StartOneDrive();
+                        Dbg.Log("TEMP-ap dilanjutkan");
+                        LogAlert("ONEDRIVE", "dilanjutkan otomatis");
+                        if (trayIcon != null)
+                        {
+                            try { trayIcon.ShowBalloonTip(6000, Lang.T("ap.resume.title"), Lang.T("ap.resume.body"), ToolTipIcon.Info); } catch { }
+                        }
+                    }
+                    return;
+                }
+                if (!apEnabled || now < odCooldownUntil) return;
+                if (odCpuPct >= 25.0) odHeavySamples++; else odHeavySamples = 0;
+                if (odHeavySamples >= 20)      // 20 sampel x ~3 dtk ≈ 60 dtk beban >=25%
+                {
+                    odHeavySamples = 0;
+                    odPausedUntil = now.AddMinutes(20);
+                    KillOneDrive();
+                    Dbg.Log("TEMP-ap dijeda pada " + odCpuPct.ToString("0.0", CultureInfo.InvariantCulture) + "%");
+                    LogAlert("ONEDRIVE", "dijeda otomatis (sync " + odCpuPct.ToString("0", CultureInfo.InvariantCulture) + "% CPU)");
+                    if (trayIcon != null)
+                    {
+                        try { trayIcon.ShowBalloonTip(8000, Lang.T("ap.pause.title"), string.Format(CultureInfo.CurrentCulture, Lang.T("ap.pause.body"), odCpuPct, 20), ToolTipIcon.Warning); } catch { }
+                    }
+                }
+            }
+            catch { }
+        }
+
         // ================= RIWAYAT (CSV per bulan + log alert + grafik) =================
         static string HistoryDir()
         {
@@ -2749,6 +2860,8 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                     procCpuRaw = cl.Count > 0 ? string.Join(" \u00B7 ", cl.ToArray()) : "\u2014";
                     procRamRaw = rl.Count > 0 ? string.Join(" \u00B7 ", rl.ToArray()) : "\u2014";
                     topCpuShort = cl.Count > 0 ? cl[0] : "";
+                    double odv;
+                    odCpuPct = agg.TryGetValue("OneDrive.Sync.Service", out odv) ? odv / (dtMs * cores) * 100.0 : 0;
                     if ((DateTime.Now.Second % 30) < 4) Dbg.Log("TEMP-proc cpu=" + procCpuRaw + " | ram=" + procRamRaw);
                 }
                 procPrevMs = curMs;

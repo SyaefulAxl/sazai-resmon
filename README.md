@@ -82,9 +82,16 @@ Dashboard pemantau laptop **native Windows 11** (C# WinForms, .NET Framework baw
 - Konteks laptop ini: zona pernah ditarik ke Dhaka berulang oleh auto-timezone/lokasi (sisa cache VPN OpenVPN) — `tzautoupdate` + `lfsvc` sudah dimatikan; penjaga ini lapisan terakhir agar kasus serupa self-heal.
 - Versi 1.3.1 (exe/installer/manifest).
 
+## Pembaruan 2026-10-18 (v1.4.0 — Auto-pause OneDrive)
+
+- **Auto-pause OneDrive saat beban berat**: sampler proses memantau `OneDrive.Sync.Service`; bila ≥25% CPU bertahan ~60 detik → OneDrive dijeda otomatis 20 menit (proses dihentikan), lalu dinyalakan kembali otomatis (`OneDrive.exe /background`) dengan jeda dingin 30 menit sebelum boleh menjeda lagi. Ada notifikasi balloon (pause & resume), tercatat di `history\alerts.log`, dan toggle **menu tray "Auto-pause OneDrive (saat beban berat)"** (tersimpan di `autopause.txt`; default ON).
+- Terverifikasi langsung: `TEMP-ap dijeda pada 33.3%` + `alerts.log [ONEDRIVE] dijeda otomatis (sync 33% CPU)`.
+- Versi 1.4.0 (exe/installer/manifest).
+
 ## File
 
-- `Dashboard.cs` — seluruh sumber (±2950 baris, termasuk class Lang)
+- `Dashboard.cs` — seluruh sumber (±3000 baris, termasuk class Lang)
+
 
 
 
