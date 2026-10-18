@@ -3,7 +3,7 @@
 [Setup]
 AppId={{7E3A9F0C-2D5B-4E8A-9C41-A6F0B2D3E517}}
 AppName=Resource Monitoring
-AppVersion=1.2.0
+AppVersion=1.3.0
 AppPublisher=SyaefulAxl
 DefaultDirName={localappdata}\ResourceMonitoring
 PrivilegesRequired=lowest

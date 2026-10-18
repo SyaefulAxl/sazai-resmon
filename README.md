@@ -67,9 +67,18 @@ Dashboard pemantau laptop **native Windows 11** (C# WinForms, .NET Framework baw
 - **Flyout diperbesar** (560 px) dan ditata ulang — seksi SUHU + PROSES TERATAS di atas tombol (sebelumnya ada tumpang-tindih LAd/tombol dari seksi lama).
 - Versi: exe/installer/manifest → 1.2.0.
 
+## Pembaruan 2026-10-18 (v1.3.0 — Riwayat: grafik suhu 60 menit, CSV per bulan, log alert)
+
+- **Grafik suhu 60 menit terakhir** di flyout (sparkline; sampel tiap 30 detik, buffer 120 titik) — melihat tren panas sekilas.
+- **Perekaman CSV otomatis**: `history\history-YYYY-MM.csv` (satu baris per menit): `waktu;temp_avg;temp_min;temp_max;cpu_pct;ram_pct;batt_pct;batt_w;top_cpu` — bisa dibuka kapan saja di Excel/Notepad (pemisah `;`, locale Indonesia).
+- **Log peringatan**: `history\alerts.log` mencatat setiap balloon (suhu/RAM/baterai) dengan stempel waktu.
+- **Menu tray "Buka riwayat (CSV)"** → membuka folder `history` langsung dari ikon tray.
+- Versi 1.3.0 (exe/installer/manifest).
+
 ## File
 
-- `Dashboard.cs` — seluruh sumber (±2800 baris, termasuk class Lang)
+- `Dashboard.cs` — seluruh sumber (±2900 baris, termasuk class Lang)
+
 
 - `app.manifest` — supportedOS + dpiAware (WAJIB)
 - `build.ps1`, `screenshot.ps1`, `ResourceMonitoring.exe` (build terakhir)
