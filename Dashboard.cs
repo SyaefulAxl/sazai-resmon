@@ -571,10 +571,14 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             P("fly.batt", "BATERAI", "BATTERY");
             P("fly.sys", "SISTEM", "SYSTEM");
             P("fly.wx", "CUACA", "WEATHER");
+            P("fly.temp", "SUHU", "TEMPERATURE");
             P("npu.loading", "NPU: memuat\u2026", "NPU: loading\u2026");
             P("batt.rate.init", "Laju: \u2014", "Rate: \u2014");
+            P("batt.volt", "Tegangan: {0:0.00} V", "Voltage: {0:0.00} V");
             P("batt.volt.init", "Tegangan: \u2014", "Voltage: \u2014");
+            P("batt.energy", "Energi: {0} / {1} mWh ({2:0.#}%)", "Energy: {0} / {1} mWh ({2:0.#}%)");
             P("batt.energy.init", "Energi: \u2014", "Energy: \u2014");
+            P("batt.health", "Kesehatan: {0:0.0}% (desain {1} mWh)", "Health: {0:0.0}% (design {1} mWh)");
             P("batt.health.init", "Kesehatan: \u2014", "Health: \u2014");
             P("batt.est.init", "Estimasi: \u2014", "Est.: \u2014");
             P("batt.use", "Laju pemakaian", "Usage rate");
@@ -904,7 +908,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
     // bar ramping nempel di atas taskbar
     public class SlimBar : Form
     {
-        public Label LClock, LBatt, LNet, LSys, LWx, LDisk, LOpen;
+        public Label LClock, LBatt, LTemp, LNet, LSys, LWx, LDisk, LOpen;
         public Action OpenFull;
         public Action ExitApp;
         ContextMenuStrip menu;
@@ -924,10 +928,11 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
 
             LClock = Mk(10, 100, Color.FromArgb(110, 190, 255));
             LBatt = Mk(118, 170, Color.FromArgb(115, 222, 160));
-            LNet = Mk(294, 260, Color.White);
-            LSys = Mk(560, 240, Color.FromArgb(168, 174, 196));
-            LWx = Mk(806, 270, Color.FromArgb(110, 190, 255));
-            LDisk = Mk(1082, 150, Color.FromArgb(168, 174, 196));
+            LTemp = Mk(294, 120, Color.FromArgb(115, 222, 160));
+            LNet = Mk(420, 240, Color.White);
+            LSys = Mk(666, 220, Color.FromArgb(168, 174, 196));
+            LWx = Mk(892, 240, Color.FromArgb(110, 190, 255));
+            LDisk = Mk(1138, 130, Color.FromArgb(168, 174, 196));
             LOpen = Mk(0, 110, Color.FromArgb(110, 190, 255));
             LOpen.Text = Lang.T("fly.dash");
             LOpen.Cursor = Cursors.Hand;
@@ -1432,7 +1437,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
     // panel ringkasan yang muncul dari tray / widget taskbar (dekat jam). Semua ukuran lewat Util.S (DPI sistem).
     public class FlyoutPanel : Form
     {
-        public Label LTitle, LBatt, LBatt2, LBatt3, LNet, LNet2, LSys, LSys2, LWx, LAd;
+        public Label LTitle, LBatt, LBatt2, LBatt3, LNet, LNet2, LSys, LSys2, LWx, LAd, LTemp, LTemp2;
         public Button BtnFull;
         public Action OpenFull;
 
@@ -1490,6 +1495,9 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             LSys2 = Mk("", 16, 268, 308, 18, sub, 9f, FontStyle.Regular);
             Mk(Lang.T("fly.wx"), 16, 296, 200, 16, dim, 8.5f, FontStyle.Bold);
             LWx = Mk("", 16, 312, 308, 38, accent, 10.5f, FontStyle.Bold);
+            Mk(Lang.T("fly.temp"), 16, 356, 200, 16, dim, 8.5f, FontStyle.Bold);
+            LTemp = Mk("", 16, 372, 308, 24, Color.White, 12f, FontStyle.Bold);
+            LTemp2 = Mk("", 16, 398, 308, 18, sub, 9f, FontStyle.Regular);
             LAd = Mk("", 16, 352, 308, 34, dim, 8.5f, FontStyle.Regular);
 
             BtnFull = new Button();
@@ -1754,7 +1762,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             // ===== header =====
             MkLabel(this, "RESOURCE MONITORING", 20, 12, 420, 28, CText, 14.5f, FontStyle.Bold);
             MkLabel(this, Lang.T("hdr.sub"), 20, 46, 600, 20, CSub, 9.5f, FontStyle.Regular);
-            lblClock = MkLabel(this, "", 700, 14, 260, 30, CAccent, 12.5f, FontStyle.Bold);
+            lblClock = MkLabel(this, "", 1050, 14, 260, 30, CAccent, 12.5f, FontStyle.Bold);
             lblClock.TextAlign = ContentAlignment.MiddleRight;
 
             Button btnBar = new Button();
@@ -1861,29 +1869,31 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             lblOs = MkLabel(cardS, "", 16, 190, 228, 50, CDim, 8.5f, FontStyle.Regular);
 
             // ===== kartu PENYIMPANAN =====
-            CardPanel cardSt = MkCard(20, 574, 460, 200);
+            CardPanel cardSt = MkCard(20, 574, 1290, 200);
             MkLabel(cardSt, Lang.T("card.stor"), 18, 12, 260, 18, CAccent, 9.5f, FontStyle.Bold);
-            lblDiskIo = MkLabel(cardSt, Lang.T("stor.io.init"), 18, 38, 424, 19, CSub, 9.5f, FontStyle.Regular);
+            lblDiskIo = MkLabel(cardSt, Lang.T("stor.io.init"), 18, 38, 1254, 19, CSub, 9.5f, FontStyle.Regular);
+            // 3 drive sejajar (kartu lebar penuh) supaya baris 3 seimbang dengan baris lain
             for (int i = 0; i < 3; i++)
             {
-                Label dl = MkLabel(cardSt, "", 18, 66 + i * 42, 424, 19, CText, 9.5f, FontStyle.Bold);
+                int cx = 18 + i * 424;
+                Label dl = MkLabel(cardSt, "", cx, 78, 400, 19, CText, 9.5f, FontStyle.Bold);
                 BarPanel bar = new BarPanel();
-                bar.Location = new Point(Util.S(18), Util.S(88 + i * 42));
-                bar.Size = new Size(Util.S(424), Util.S(14));
+                bar.Location = new Point(Util.S(cx), Util.S(102));
+                bar.Size = new Size(Util.S(400), Util.S(14));
                 cardSt.Controls.Add(bar);
                 driveUis.Add(new DriveUi(dl, bar));
             }
 
             // ===== kartu GPU · NPU · CPU =====
-            CardPanel cardG = MkCard(500, 574, 460, 200);
+            CardPanel cardG = MkCard(980, 314, 330, 250);
             MkLabel(cardG, Lang.T("card.gpu"), 18, 12, 300, 18, CAccent, 9.5f, FontStyle.Bold);
-            lblGpu1 = MkLabel(cardG, Lang.T("gpu.loading"), 18, 38, 424, 20, CText, 9.75f, FontStyle.Bold);
-            lblGpu1d = MkLabel(cardG, "", 18, 58, 424, 18, CSub, 9f, FontStyle.Regular);
-            lblGpu2 = MkLabel(cardG, "", 18, 80, 424, 20, CText, 9.75f, FontStyle.Bold);
-            lblGpu2d = MkLabel(cardG, "", 18, 100, 424, 18, CSub, 9f, FontStyle.Regular);
-            lblNpu = MkLabel(cardG, Lang.T("npu.loading"), 18, 124, 424, 20, CText, 9.75f, FontStyle.Bold);
-            lblNpuD = MkLabel(cardG, "", 18, 144, 424, 18, CSub, 9f, FontStyle.Regular);
-            lblCpuInfo = MkLabel(cardG, "", 18, 170, 424, 20, CText, 9.75f, FontStyle.Bold);
+            lblGpu1 = MkLabel(cardG, Lang.T("gpu.loading"), 18, 38, 294, 20, CText, 9.5f, FontStyle.Bold);
+            lblGpu1d = MkLabel(cardG, "", 18, 58, 294, 18, CSub, 8.75f, FontStyle.Regular);
+            lblGpu2 = MkLabel(cardG, "", 18, 84, 294, 20, CText, 9.5f, FontStyle.Bold);
+            lblGpu2d = MkLabel(cardG, "", 18, 104, 294, 18, CSub, 8.75f, FontStyle.Regular);
+            lblNpu = MkLabel(cardG, Lang.T("npu.loading"), 18, 132, 294, 20, CText, 9.5f, FontStyle.Bold);
+            lblNpuD = MkLabel(cardG, "", 18, 152, 294, 18, CSub, 8.75f, FontStyle.Regular);
+            lblCpuInfo = MkLabel(cardG, "", 18, 186, 294, 20, CText, 9.5f, FontStyle.Bold);
 
             MkLabel(this, "Resource Monitoring v1.0 \u00B7 C# WinForms native", 970, 782, 340, 16, CDim, 8.5f, FontStyle.Regular).TextAlign = ContentAlignment.MiddleRight;
         }
@@ -2224,6 +2234,8 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             flyout.LSys.Text = sysShort;
             flyout.LSys2.Text = lblUptime.Text;
             flyout.LWx.Text = lastWxShort;
+            flyout.LTemp.Text = tempShort != "" ? tempShort : "\u2014 \u00B0C";
+            flyout.LTemp2.Text = lblTempAux != null ? lblTempAux.Text : "";
             flyout.LAd.Text = lblAdapter.Text;
         }
 
@@ -2298,13 +2310,15 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                 bar.LSys.Text = sysShort;
                 bar.LWx.Text = lastWxShort;
                 bar.LDisk.Text = diskShort;
+                bar.LTemp.Text = tempShort != "" ? tempShort : "\u2014";
+                bar.LTemp.ForeColor = tempShort != "" ? TempColor(tempAvgVal) : Color.FromArgb(168, 174, 196);
             }
 
             UpdateTrayIcon();
             if (flyout != null && flyout.Visible) RefreshFlyout();
             if (trayIcon != null && tick % 5 == 0)
             {
-                string tt = battPctShort + " " + battWShort + "W | " + netShort + " | " + lblCpu.Text + " | " + lastWxShort;
+                string tt = battPctShort + " " + battWShort + "W | " + netShort + " | " + lblCpu.Text + (tempShort != "" ? " | " + tempShort : "") + " | " + lastWxShort;
                 if (tt.Length > 63) tt = tt.Substring(0, 63);
                 try { trayIcon.Text = tt; } catch { }
             }
@@ -2762,7 +2776,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             {
                 prevIn = tot[0]; prevOut = tot[1];
                 netSw.Restart();
-                lblNetBoot.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("net.boot.init"), Util.FmtBytes(tot[0]), Util.FmtBytes(tot[1]));
+                lblNetBoot.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("net.boot"), Util.FmtBytes(tot[0]), Util.FmtBytes(tot[1]));
                 return;
             }
             double dt = netSw.Elapsed.TotalSeconds;
@@ -2791,9 +2805,9 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
 
             lblNetDown.Text = "\u2193 " + Util.FmtRate(emaD);
             lblNetUp.Text = "\u2191 " + Util.FmtRate(emaU);
-            lblNetSesi.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("net.session.init"), Util.FmtBytes(sessIn), Util.FmtBytes(sessOut));
-            lblNetPuncak.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("net.peak.init"), Util.FmtRate(peakD), Util.FmtRate(peakU));
-            lblNetBoot.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("net.boot.init"), Util.FmtBytes(tot[0]), Util.FmtBytes(tot[1]));
+            lblNetSesi.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("net.session"), Util.FmtBytes(sessIn), Util.FmtBytes(sessOut));
+            lblNetPuncak.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("net.peak"), Util.FmtRate(peakD), Util.FmtRate(peakU));
+            lblNetBoot.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("net.boot"), Util.FmtBytes(tot[0]), Util.FmtBytes(tot[1]));
             netShort = string.Format(CultureInfo.CurrentCulture, "\u2193 {0} \u2191 {1}", Util.FmtRate(emaD), Util.FmtRate(emaU));
         }
 
@@ -2814,7 +2828,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                     }
                     double rr = pcDiskRead.NextValue();
                     double wr = pcDiskWrite.NextValue();
-                    lblDiskIo.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("stor.io.init"), Util.FmtRate(rr), Util.FmtRate(wr));
+                    lblDiskIo.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("stor.io"), Util.FmtRate(rr), Util.FmtRate(wr));
                 }
                 catch
                 {
@@ -3039,7 +3053,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                 ? string.Format(CultureInfo.CurrentCulture, "{0:0.#} Gbps", mbps / 1000.0)
                 : string.Format(CultureInfo.CurrentCulture, "{0:0} Mbps", mbps);
             string name = isWifi && ssid != null && ssid != "" ? kind + " \"" + ssid + "\"" : kind;
-            lblAdapter.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("net.adapter.init"), name, best.Description, spd);
+            lblAdapter.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("net.adapter"), name, best.Description, spd);
         }
 
         // `netsh wlan show interfaces` dihitung Windows 11 sebagai akses LOKASI: tiap panggilan memunculkan ikon panah
@@ -3399,7 +3413,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                         double dmax, dmin;
                         double.TryParse(Convert.ToString(mx[0]), NumberStyles.Float, CultureInfo.InvariantCulture, out dmax);
                         double.TryParse(Convert.ToString(mn[0]), NumberStyles.Float, CultureInfo.InvariantCulture, out dmin);
-                        mmS = string.Format(CultureInfo.CurrentCulture, Lang.T("wx.today.init"), dmin, dmax);
+                        mmS = string.Format(CultureInfo.CurrentCulture, Lang.T("wx.today"), dmin, dmax);
                     }
                 }
 
