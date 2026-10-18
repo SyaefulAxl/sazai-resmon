@@ -575,6 +575,16 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             P("fly.sys", "SISTEM", "SYSTEM");
             P("fly.wx", "CUACA", "WEATHER");
             P("fly.temp", "SUHU", "TEMPERATURE");
+            P("fly.proc", "PROSES TERATAS", "TOP PROCESSES");
+            P("proc.cpu", "CPU: {0}", "CPU: {0}");
+            P("proc.ram", "RAM: {0}", "RAM: {0}");
+            P("alert.temp.title", "Suhu tinggi", "High temperature");
+            P("alert.temp.body", "Suhu rata-rata {0:0.0} \u00B0C. Periksa Proses Teratas di tray.", "Average temperature {0:0.0} \u00B0C. Check Top Processes in the tray.");
+            P("alert.ram.title", "RAM hampir penuh", "Memory almost full");
+            P("alert.ram.body", "RAM terpakai {0:0}%. Tutup aplikasi yang tidak dipakai.", "Memory usage {0:0}%. Close unused apps.");
+            P("alert.bat.title", "Baterai lemah", "Battery low");
+            P("alert.bat.body", "Baterai {0:0.#}% \u2014 colok charger.", "Battery {0:0.#}% \u2014 plug in the charger.");
+            P("batt.health2", "Kesehatan: {0:0.0}% (desain {1} mWh) \u00B7 {2} siklus", "Health: {0:0.0}% (design {1} mWh) \u00B7 {2} cycles");
             P("npu.loading", "NPU: memuat\u2026", "NPU: loading\u2026");
             P("batt.rate.init", "Laju: \u2014", "Rate: \u2014");
             P("batt.volt", "Tegangan: {0:0.00} V", "Voltage: {0:0.00} V");
@@ -1089,6 +1099,8 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
         public string TxtPct = "";
         public string TxtWatt = "";
         public string TxtTemp = "";          // suhu rata-rata kartu SUHU (kosong = tidak ada data)
+        public string TxtCpu = "";           // "CPU 12%" (baris ke-2 kolom suhu)
+        public int CpuState = 0;             // 0 biasa, 1 sibuk, 2 berat
         public Color ColTempOverride = Color.Empty;
         public int BattState = 0;            // 0 = biasa, 1 = mengisi, 2 = rendah
         public Action ClickFlyout;
@@ -1165,6 +1177,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
         Color ColBad { get { return light ? Color.FromArgb(186, 28, 28) : Color.FromArgb(255, 128, 128); } }
         Color ColWarm { get { return light ? Color.FromArgb(168, 92, 0) : Color.FromArgb(255, 200, 100); } }
         Color ColPct { get { return BattState == 2 ? ColBad : (BattState == 1 ? ColGood : ColText); } }
+        Color ColCpu { get { return CpuState == 2 ? ColBad : (CpuState == 1 ? ColWarm : ColText); } }
         Color ColWatt { get { return BattState == 2 ? ColBad : (BattState == 1 ? ColGood : ColWarm); } }
 
         float Measure(string s)
@@ -1257,8 +1270,10 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             float w2 = Math.Max(Measure("100,0%"), Measure("+100,0 W"));
             bool hasTemp = TxtTemp != "";
             bool hasBatt = TxtPct != "" || TxtWatt != "";
-            float wT = hasTemp ? Math.Max(Measure("148,88°C"), Measure(Lang.T("card.temp"))) : 0f;   // templat tetap juga
-            int w = (int)Math.Ceiling(padL + w1 + colGap + w2 + (hasTemp ? colGap + wT : 0f) + padR);
+            bool hasCpu = TxtCpu != "";
+            bool hasT = hasTemp || hasCpu;
+            float wT = hasT ? Math.Max(Math.Max(Measure("148,88°C"), Measure("CPU 188%")), Measure(Lang.T("card.temp"))) : 0f;   // templat tetap juga
+            int w = (int)Math.Ceiling(padL + w1 + colGap + w2 + (hasT ? colGap + wT : 0f) + padR);
 
             int x = ComputeX(tb, tbH, w, s);
             int y = margin;
@@ -1266,7 +1281,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             if ((tickN % 5) == 1)
                 TWin32.SetWindowPos(Handle, IntPtr.Zero, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010);   // tetap paling atas
 
-            string sig = TxtDown + "|" + TxtUp + "|" + TxtPct + "|" + TxtWatt + "|" + TxtTemp + "|" + BattState + "|" + light
+            string sig = TxtDown + "|" + TxtUp + "|" + TxtPct + "|" + TxtWatt + "|" + TxtTemp + "|" + TxtCpu + "|" + CpuState + "|" + BattState + "|" + light
                 + "|" + (ColTempOverride.ToArgb()) + "|" + w + "x" + h + "@" + x + "," + y + "|" + em.ToString("0.0", CultureInfo.InvariantCulture);
             if (sig == lastSig && (tickN % 30) != 0) return;
             lastSig = sig;
@@ -1277,7 +1292,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                 Dbg.Log("widget move x=" + x + " w=" + w + " h=" + h + " (lama x=" + lastX + " w=" + lastW + " h=" + lastH + ")");
                 lastX = x; lastW = w; lastH = h;
             }
-            DrawAndPush(w, h, em, padL, w1, w2, colGap, lineH, hasBatt, hasTemp, wT);
+            DrawAndPush(w, h, em, padL, w1, w2, colGap, lineH, hasBatt, hasTemp, hasCpu, wT);
         }
 
         // posisi X (relatif ke taskbar): di kiri area notifikasi, bergeser ke kiri bila ada jendela pihak ketiga (mis. TrafficMonitor)
@@ -1347,7 +1362,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             return res;
         }
 
-        void DrawAndPush(int w, int h, float em, float padL, float w1, float w2, float colGap, float lineH, bool hasBatt, bool hasTemp, float wT)
+        void DrawAndPush(int w, int h, float em, float padL, float w1, float w2, float colGap, float lineH, bool hasBatt, bool hasTemp, bool hasCpu, float wT)
         {
             bool ok = false;
             using (Bitmap bmp = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb))
@@ -1368,11 +1383,15 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                         DrawTxt(g, TxtPct, ColPct, x2, y1);
                         DrawTxt(g, TxtWatt, ColWatt, x2, y2);
                     }
-                    if (hasTemp)
+                    if (hasTemp || hasCpu)
                     {
                         float x3 = padL + w1 + colGap + w2 + colGap;
-                        Color ct = ColTempOverride != Color.Empty ? ColTempOverride : ColWarm;
-                        DrawTxt(g, TxtTemp, ct, x3, y1);
+                        if (hasTemp)
+                        {
+                            Color ct = ColTempOverride != Color.Empty ? ColTempOverride : ColWarm;
+                            DrawTxt(g, TxtTemp, ct, x3, y1);
+                        }
+                        if (hasCpu) DrawTxt(g, TxtCpu, ColCpu, x3, y2);
                     }
                 }
                 ok = PushBitmap(bmp, w, h);
@@ -1440,7 +1459,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
     // panel ringkasan yang muncul dari tray / widget taskbar (dekat jam). Semua ukuran lewat Util.S (DPI sistem).
     public class FlyoutPanel : Form
     {
-        public Label LTitle, LBatt, LBatt2, LBatt3, LNet, LNet2, LSys, LSys2, LWx, LAd, LTemp, LTemp2;
+        public Label LTitle, LBatt, LBatt2, LBatt3, LNet, LNet2, LSys, LSys2, LWx, LAd, LTemp, LTemp2, LProc1, LProc2;
         public Button BtnFull;
         public Action OpenFull;
 
@@ -1476,7 +1495,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             TopMost = true;
             StartPosition = FormStartPosition.Manual;
             AutoScaleMode = AutoScaleMode.None;
-            ClientSize = new Size(Util.S(340), Util.S(440));
+            ClientSize = new Size(Util.S(340), Util.S(560));
             BackColor = Color.FromArgb(28, 30, 42);
             DoubleBuffered = true;
 
@@ -1501,11 +1520,14 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             Mk(Lang.T("fly.temp"), 16, 356, 200, 16, dim, 8.5f, FontStyle.Bold);
             LTemp = Mk("", 16, 372, 308, 24, Color.White, 12f, FontStyle.Bold);
             LTemp2 = Mk("", 16, 398, 308, 18, sub, 9f, FontStyle.Regular);
-            LAd = Mk("", 16, 352, 308, 34, dim, 8.5f, FontStyle.Regular);
+            Mk(Lang.T("fly.proc"), 16, 424, 200, 16, dim, 8.5f, FontStyle.Bold);
+            LProc1 = Mk("", 16, 440, 308, 18, sub, 9f, FontStyle.Regular);
+            LProc2 = Mk("", 16, 460, 308, 18, sub, 9f, FontStyle.Regular);
+            LAd = Mk("", 16, 482, 308, 18, dim, 8.5f, FontStyle.Regular);
 
             BtnFull = new Button();
             BtnFull.Text = Lang.T("menu.open");
-            BtnFull.Location = new Point(Util.S(16), Util.S(396));
+            BtnFull.Location = new Point(Util.S(16), Util.S(508));
             BtnFull.Size = new Size(Util.S(150), Util.S(30));
             StyleBtn(BtnFull);
             BtnFull.Click += delegate { Hide(); if (OpenFull != null) OpenFull(); };
@@ -1513,7 +1535,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
 
             Button bClose = new Button();
             bClose.Text = Lang.T("menu.close");
-            bClose.Location = new Point(Util.S(174), Util.S(396));
+            bClose.Location = new Point(Util.S(174), Util.S(508));
             bClose.Size = new Size(Util.S(150), Util.S(30));
             StyleBtn(bClose);
             bClose.Click += delegate { Hide(); };
@@ -1567,6 +1589,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
         ulong prevIdle = 0, prevTotal = 0;
         string osTextCache = null;
         long designFromReport = -1;
+        long cycleCount = -1;
 
         // cuaca, bar, cache
         DateTime nextWxRetry = DateTime.Now;
@@ -1580,6 +1603,13 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
         // widget taskbar: teks suhu rata-rata (kosong bila kolektor belum aktif)
         string tempShort = "";
         double tempAvgVal = 0;
+        double cpuPctVal = 0;
+        // proses teratas (CPU/RAM) — sampling delta ~3 detik
+        string procCpuRaw = "", procRamRaw = "", topCpuShort = "";
+        Dictionary<string, double> procPrevMs = new Dictionary<string, double>();
+        DateTime procPrevAt = DateTime.MinValue;
+        // peringatan balloon (jeda agar tidak spam)
+        DateTime alertTempAt = DateTime.MinValue, alertRamAt = DateTime.MinValue, alertBatAt = DateTime.MinValue;
         string diskShort = "C: \u2014";
         SlimBar bar;
         HashSet<string> physCache = new HashSet<string>();
@@ -1898,7 +1928,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             lblNpuD = MkLabel(cardG, "", 18, 152, 294, 18, CSub, 8.75f, FontStyle.Regular);
             lblCpuInfo = MkLabel(cardG, "", 18, 186, 294, 20, CText, 9.5f, FontStyle.Bold);
 
-            MkLabel(this, "Resource Monitoring v1.0 \u00B7 C# WinForms native", 970, 782, 340, 16, CDim, 8.5f, FontStyle.Regular).TextAlign = ContentAlignment.MiddleRight;
+            MkLabel(this, "Resource Monitoring v1.2.0 \u00B7 C# WinForms native", 970, 782, 340, 16, CDim, 8.5f, FontStyle.Regular).TextAlign = ContentAlignment.MiddleRight;
         }
 
         void StyleButton(Button b)
@@ -2161,6 +2191,8 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             tbWidget.TxtWatt = battWShort != "0,0" ? battWShort + " W" : "";
             tbWidget.BattState = battCharging ? 1 : (battPctVal <= 20 ? 2 : 0);
             tbWidget.TxtTemp = tempShort != "" ? tempShort : "";
+            tbWidget.TxtCpu = lblCpu.Text != "" ? lblCpu.Text : "";
+            tbWidget.CpuState = cpuPctVal >= 80 ? 2 : (cpuPctVal >= 50 ? 1 : 0);
             tbWidget.ColTempOverride = tempShort != "" ? TempColor(tempAvgVal) : Color.Empty;
             tbWidget.RefreshWidget(tray);
             if (tbWidget.FailCount >= 5) EnterTrayMode(false);   // render layered gagal terus -> jatuh ke mode tray
@@ -2239,6 +2271,8 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             flyout.LWx.Text = lastWxShort;
             flyout.LTemp.Text = tempShort != "" ? tempShort : "\u2014 \u00B0C";
             flyout.LTemp2.Text = lblTempAux != null ? lblTempAux.Text : "";
+            flyout.LProc1.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("proc.cpu"), procCpuRaw == "" ? "\u2014" : procCpuRaw);
+            flyout.LProc2.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("proc.ram"), procRamRaw == "" ? "\u2014" : procRamRaw);
             flyout.LAd.Text = lblAdapter.Text;
         }
 
@@ -2321,13 +2355,14 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             if (flyout != null && flyout.Visible) RefreshFlyout();
             if (trayIcon != null && tick % 5 == 0)
             {
-                string tt = battPctShort + " " + battWShort + "W | " + netShort + " | " + lblCpu.Text + (tempShort != "" ? " | " + tempShort : "") + " | " + lastWxShort;
+                string tt = battPctShort + " " + battWShort + "W | " + netShort + " | " + lblCpu.Text + (tempShort != "" ? " | " + tempShort : "") + (topCpuShort != "" ? " \u00B7 " + topCpuShort : "") + " | " + lastWxShort;
                 if (tt.Length > 63) tt = tt.Substring(0, 63);
                 try { trayIcon.Text = tt; } catch { }
             }
 
             // suhu: dibaca tiap 2 detik bila file berubah (murah: satu stat + baca versi baru saja)
             if (tick % 2 == 0) UpdateTemps();
+            if (tick % 3 == 0) UpdateTopProcs();
 
             if (taskbarMode) UpdateTaskbarWidget();
         }
@@ -2462,6 +2497,11 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             lblTempAvg.ForeColor = TempColor(s.Avg);
             tempShort = s.Avg.ToString("0.0", CultureInfo.CurrentCulture) + "\u00B0C";
             tempAvgVal = s.Avg;
+            if (s.Avg >= 85 && (DateTime.Now - alertTempAt).TotalMinutes > 10 && trayIcon != null)
+            {
+                alertTempAt = DateTime.Now;
+                try { trayIcon.ShowBalloonTip(8000, Lang.T("alert.temp.title"), string.Format(CultureInfo.CurrentCulture, Lang.T("alert.temp.body"), s.Avg), ToolTipIcon.Warning); } catch { }
+            }
             double mn = s.Vs.Min(), mx = s.Vs.Max();
             string up = s.Updated.Length >= 8 ? s.Updated.Substring(s.Updated.Length - 8) : s.Updated;
             lblTempStat.Text = s.Rows.Count + Lang.T("temp.stat.sep") + Cz(mn) + "\u2013" + Cz(Math.Max(mn, mx)) + " \u00B7 " + up;
@@ -2498,6 +2538,79 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             if (rest > 0) line.Add("\u2026 +" + rest + Lang.T("temp.more"));
             lblTempList.Text = string.Join("\n", line);
             if (btnTemp != null) btnTemp.Visible = false;
+        }
+
+        // ================= PROSES TERATAS (CPU & RAM) =================
+        static string FmtMB(double mb)
+        {
+            if (mb >= 1024) return (mb / 1024.0).ToString("0.0", CultureInfo.CurrentCulture) + " GB";
+            return mb.ToString("0", CultureInfo.CurrentCulture) + " MB";
+        }
+
+        void UpdateTopProcs()
+        {
+            try
+            {
+                DateTime now = DateTime.Now;
+                int cores = Environment.ProcessorCount;
+                if (cores < 1) cores = 1;
+                Dictionary<string, double> agg = new Dictionary<string, double>();
+                Dictionary<string, double> ram = new Dictionary<string, double>();
+                Dictionary<string, double> curMs = new Dictionary<string, double>();
+                double dtMs = procPrevAt == DateTime.MinValue ? 0 : (now - procPrevAt).TotalMilliseconds;
+                foreach (Process p in Process.GetProcesses())
+                {
+                    try
+                    {
+                        if (p.Id == 0 || p.Id == 4) continue;
+                        string nm = p.ProcessName;
+                        double ms = p.TotalProcessorTime.TotalMilliseconds;
+                        double wsMb = p.WorkingSet64 / 1048576.0;
+                        double prev;
+                        if (curMs.TryGetValue(nm, out prev)) curMs[nm] = prev + ms; else curMs[nm] = ms;
+                        if (ram.ContainsKey(nm)) ram[nm] += wsMb; else ram[nm] = wsMb;
+                    }
+                    catch { }
+                }
+                if (dtMs > 500)
+                {
+                    foreach (KeyValuePair<string, double> kv in curMs)
+                    {
+                        double prev;
+                        if (procPrevMs.TryGetValue(kv.Key, out prev))
+                        {
+                            double d = kv.Value - prev;
+                            if (d < 0) d = 0;
+                            agg[kv.Key] = d;
+                        }
+                    }
+                    List<KeyValuePair<string, double>> cpuTop = new List<KeyValuePair<string, double>>(agg);
+                    cpuTop.Sort(delegate(KeyValuePair<string, double> a, KeyValuePair<string, double> b) { return b.Value.CompareTo(a.Value); });
+                    List<KeyValuePair<string, double>> ramTop = new List<KeyValuePair<string, double>>(ram);
+                    ramTop.Sort(delegate(KeyValuePair<string, double> a, KeyValuePair<string, double> b) { return b.Value.CompareTo(a.Value); });
+                    List<string> cl = new List<string>();
+                    for (int i = 0; i < cpuTop.Count && i < 3; i++)
+                    {
+                        double pct = cpuTop[i].Value / (dtMs * cores) * 100.0;
+                        if (pct < 0.05) continue;
+                        string nm = cpuTop[i].Key; if (nm.Length > 16) nm = nm.Substring(0, 15) + "\u2026";
+                        cl.Add(nm + " " + pct.ToString("0.#", CultureInfo.CurrentCulture) + "%");
+                    }
+                    List<string> rl = new List<string>();
+                    for (int i = 0; i < ramTop.Count && i < 3; i++)
+                    {
+                        string nm = ramTop[i].Key; if (nm.Length > 16) nm = nm.Substring(0, 15) + "\u2026";
+                        rl.Add(nm + " " + FmtMB(ramTop[i].Value));
+                    }
+                    procCpuRaw = cl.Count > 0 ? string.Join(" \u00B7 ", cl.ToArray()) : "\u2014";
+                    procRamRaw = rl.Count > 0 ? string.Join(" \u00B7 ", rl.ToArray()) : "\u2014";
+                    topCpuShort = cl.Count > 0 ? cl[0] : "";
+                    if ((DateTime.Now.Second % 30) < 4) Dbg.Log("TEMP-proc cpu=" + procCpuRaw + " | ram=" + procRamRaw);
+                }
+                procPrevMs = curMs;
+                procPrevAt = now;
+            }
+            catch { }
         }
 
         // ================= BATERAI =================
@@ -2665,6 +2778,11 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                 }
 
                 battPctShort = string.Format(CultureInfo.CurrentCulture, "{0:0.#}%", pctD);
+                if (!battCharging && pctD <= 15 && (DateTime.Now - alertBatAt).TotalMinutes > 30 && trayIcon != null)
+                {
+                    alertBatAt = DateTime.Now;
+                    try { trayIcon.ShowBalloonTip(8000, Lang.T("alert.bat.title"), string.Format(CultureInfo.CurrentCulture, Lang.T("alert.bat.body"), pctD), ToolTipIcon.Warning); } catch { }
+                }
                 battPctVal = pctD;
                 battCharging = isCharging;
                 battWShort = rateMw > 0
@@ -2688,7 +2806,8 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                 if (designMwh > 0 && fullMwh > 0)
                 {
                     double health = fullMwh * 100.0 / designMwh;
-                    lblBattHealth.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("batt.health"), health, Util.Num(designMwh));
+                    if (cycleCount >= 0) lblBattHealth.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("batt.health2"), health, Util.Num(designMwh), cycleCount);
+                    else lblBattHealth.Text = string.Format(CultureInfo.CurrentCulture, Lang.T("batt.health"), health, Util.Num(designMwh));
                     lblBattHealth.ForeColor = health >= 80 ? CGood : (health >= 60 ? CWarn : CBad);
                 }
                 else lblBattHealth.Text = Lang.T("batt.health.init");
@@ -2736,6 +2855,12 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                         {
                             long d;
                             if (long.TryParse(nl[0].InnerText.Trim(), out d) && d > 0) designFromReport = d;
+                        }
+                        System.Xml.XmlNodeList nc = doc.GetElementsByTagName("CycleCount");
+                        if (nc.Count > 0)
+                        {
+                            long cc;
+                            if (long.TryParse(nc[0].InnerText.Trim(), out cc) && cc >= 0) cycleCount = cc;
                         }
                         try { File.Delete(tmp); } catch { }
                     }
@@ -2982,6 +3107,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                         double cpu = 100.0 * (1.0 - (double)dIdle / (double)dTotal);
                         if (cpu < 0) cpu = 0; if (cpu > 100) cpu = 100;
                         lblCpu.Text = string.Format(CultureInfo.CurrentCulture, "CPU {0:0}%", cpu);
+                        cpuPctVal = cpu;
                     }
                 }
                 else cpuPrimed = true;
@@ -2994,6 +3120,12 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                 double totalGb = mem.ullTotalPhys / 1073741824.0;
                 double usedGb = (mem.ullTotalPhys - mem.ullAvailPhys) / 1073741824.0;
                 lblRam.Text = string.Format(CultureInfo.CurrentCulture, "RAM {0:0.0}/{1:0.0} GB", usedGb, totalGb);
+                double ramPct = totalGb > 0 ? (usedGb / totalGb) * 100.0 : 0;
+                if (ramPct >= 90 && (DateTime.Now - alertRamAt).TotalMinutes > 10 && trayIcon != null)
+                {
+                    alertRamAt = DateTime.Now;
+                    try { trayIcon.ShowBalloonTip(8000, Lang.T("alert.ram.title"), string.Format(CultureInfo.CurrentCulture, Lang.T("alert.ram.body"), ramPct), ToolTipIcon.Warning); } catch { }
+                }
             }
 
             lblUptime.Text = Lang.T("sys.up") + Util.FmtDur(TimeSpan.FromMilliseconds(GetTickCount64()));

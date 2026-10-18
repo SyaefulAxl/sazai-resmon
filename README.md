@@ -58,9 +58,19 @@ Dashboard pemantau laptop **native Windows 11** (C# WinForms, .NET Framework baw
 6. **Compiler csc v4 = C# 5**: dilarang `out var` inline, `is X t`, `?.`, string interpolation, tuple.
 7. **i18n**: teks hanya lewat `Lang.T("kunci")` — jangan hardcode string UI baru.
 
+## Pembaruan 2026-10-18 (v1.2.0 — Proses Teratas, peringatan, siklus baterai, CPU di widget)
+
+- **PROSES TERATAS** di flyout tray (dan proses #1 CPU di tooltip tray): sampling delta CPU per nama proses + agregat RAM tiap ~3 detik — langsung menjawab "apa yang membuat laptop panas/berat". (Verifikasi log: `OneDrive 22.6% · Code 8.6% · node 5.5% | chrome 5.0 GB · Code 4.1 GB · node 1.9 GB`.)
+- **Peringatan balloon tray**: suhu rata-rata ≥85°C (jeda 10 mnt), RAM ≥90% (jeda 10 mnt), baterai ≤15% saat tidak mengisi (jeda 30 mnt) — teks dua bahasa.
+- **CPU di widget taskbar**: kolom suhu kini dua baris — suhu (baris 1) + `CPU xx%` (baris 2, warna berubah ≥50% oranye, ≥80% merah).
+- **Siklus baterai** dari `powercfg /batteryreport /XML` (CycleCount) digabung ke baris Kesehatan: "Kesehatan: 97.3% (desain 84,000 mWh) · 213 siklus".
+- **Flyout diperbesar** (560 px) dan ditata ulang — seksi SUHU + PROSES TERATAS di atas tombol (sebelumnya ada tumpang-tindih LAd/tombol dari seksi lama).
+- Versi: exe/installer/manifest → 1.2.0.
+
 ## File
 
-- `Dashboard.cs` — seluruh sumber (±2600 baris, termasuk class Lang)
+- `Dashboard.cs` — seluruh sumber (±2800 baris, termasuk class Lang)
+
 - `app.manifest` — supportedOS + dpiAware (WAJIB)
 - `build.ps1`, `screenshot.ps1`, `ResourceMonitoring.exe` (build terakhir)
 - `LibreHardwareMonitorLib.dll` + dependensi (`DiskInfoToolkit.dll`, `RAMSPDToolkit-NDD.dll`, `HidSharp.dll`, `BlackSharp.Core.dll`, keluarga `System.*`)
