@@ -525,6 +525,7 @@ namespace ResourceMonitoring
             P("wx.today.init", "Hari ini: \u2014", "Today: \u2014");
             P("wx.today", "Hari ini: {0:0}\u00B0 / {1:0}\u00B0", "Today: {0:0}\u00B0 / {1:0}\u00B0");
             P("wx.updated", "Diperbarui: ", "Updated: ");
+            P("wx.device", "Perangkat ini", "This device");
             P("wx.unknown", "tidak diketahui", "unknown");
             P("wx.fail", "Gagal: ", "Failed: ");
             P("wx.c1", "Cerah", "Clear sky");
@@ -3154,13 +3155,14 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
 
         // Lokasi cuaca tetap. Default: Sukajadi, Bandung. Ubah lewat location.txt di folder aplikasi:
         //   baris tunggal  lat,lon,Nama tampilan   (contoh: -6.889,107.595,Sukajadi, Bandung)
-        static void LoadFixedLocation(out double lat, out double lon, out string name)
+        /// Lokasi manual dari location.txt (override): ada hanya bila file-nya ada dan valid.
+        static bool TryLoadFixedLocation(out double lat, out double lon, out string name)
         {
-            lat = -6.8890; lon = 107.5950; name = "Sukajadi, Bandung \u00B7 Indonesia";
+            lat = 0; lon = 0; name = null;
             try
             {
                 string f = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "location.txt");
-                if (!File.Exists(f)) return;
+                if (!File.Exists(f)) return false;
                 string[] p = File.ReadAllText(f).Trim().Split(new char[] { ',' }, 3);
                 double a, b;
                 if (p.Length >= 2 && double.TryParse(p[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out a)
@@ -3168,10 +3170,94 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                     && a >= -90 && a <= 90 && b >= -180 && b <= 180)
                 {
                     lat = a; lon = b;
-                    if (p.Length == 3 && p[2].Trim() != "") name = p[2].Trim();
+                    name = (p.Length == 3 && p[2].Trim() != "") ? p[2].Trim() : null;
+                    return true;
                 }
             }
             catch { }
+            return false;
+        }
+
+        /// jarak lingkaran besar (km) — untuk uji plausibilitas GPS vs IP
+        static double HaversineKm(double a1, double b1, double a2, double b2)
+        {
+            double r = 6371.0;
+            double dLat = (a2 - a1) * Math.PI / 180.0;
+            double dLon = (b2 - b1) * Math.PI / 180.0;
+            double s1 = Math.Sin(dLat / 2), s2 = Math.Sin(dLon / 2);
+            double h = s1 * s1 + Math.Cos(a1 * Math.PI / 180.0) * Math.Cos(a2 * Math.PI / 180.0) * s2 * s2;
+            return 2 * r * Math.Asin(Math.Min(1, Math.Sqrt(h)));
+        }
+
+#if !NO_WINRT
+        // posisi perangkat sungguhan (Windows Location Services / GPS-Wi-Fi): akurasi tinggi,
+        // di-cache 10 menit supaya pemanggilan tiap 5 menit tidak membangunkan sensor terus-menerus
+        static double devLat = 0, devLon = 0;
+        static DateTime devAt = DateTime.MinValue;
+
+        static bool TryGetDeviceLocation(out double lat, out double lon)
+        {
+            lat = 0; lon = 0;
+            if (devAt != DateTime.MinValue && (DateTime.UtcNow - devAt).TotalMinutes < 10)
+            {
+                lat = devLat; lon = devLon;
+                return lat != 0 || lon != 0;
+            }
+            try
+            {
+                Windows.Devices.Geolocation.GeolocationAccessStatus st = Windows.Devices.Geolocation.Geolocator.RequestAccessAsync().AsTask().GetAwaiter().GetResult();
+                if (st == Windows.Devices.Geolocation.GeolocationAccessStatus.Denied) return false;
+                Windows.Devices.Geolocation.Geolocator g = new Windows.Devices.Geolocation.Geolocator();
+                try { g.DesiredAccuracy = Windows.Devices.Geolocation.PositionAccuracy.High; } catch { }
+                using (System.Threading.CancellationTokenSource cts = new System.Threading.CancellationTokenSource(9000))
+                {
+                    Windows.Devices.Geolocation.Geoposition pos = g.GetGeopositionAsync().AsTask(cts.Token).GetAwaiter().GetResult();
+                    if (pos == null || pos.Coordinate == null || pos.Coordinate.Point == null) return false;
+                    double a = pos.Coordinate.Point.Position.Latitude;
+                    double b = pos.Coordinate.Point.Position.Longitude;
+                    if (a < -90 || a > 90 || b < -180 || b > 180 || (a == 0 && b == 0)) return false;
+                    devLat = a; devLon = b; devAt = DateTime.UtcNow;
+                    lat = a; lon = b;
+                    Dbg.Log("TEMP-wx gps " + a.ToString("0.####", CultureInfo.InvariantCulture) + "," + b.ToString("0.####", CultureInfo.InvariantCulture));
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Dbg.Log("TEMP-wx gpsEX " + ex.GetType().Name + " " + ex.Message);
+                return false;
+            }
+        }
+#else
+        static bool TryGetDeviceLocation(out double lat, out double lon)
+        {
+            lat = 0; lon = 0;
+            return false;   // build tanpa referensi WinRT (tanpa SDK) — GPS tidak tersedia
+        }
+#endif
+
+        /// Nama kota dari koordinat (BigDataCloud, tanpa kunci; bahasa mengikuti UI).
+        async Task<string> ReverseGeocodeAsync(double lat, double lon)
+        {
+            try
+            {
+                string langCode = Lang.Mode == "en" ? "en" : "id";
+                string u = string.Format(CultureInfo.InvariantCulture,
+                    "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude={0}&longitude={1}&localityLanguage={2}",
+                    lat, lon, langCode);
+                string j = await GetStringTimed(SharedHttp.Client, u, 10);
+                if (string.IsNullOrEmpty(j)) return null;
+                JavaScriptSerializer js = new JavaScriptSerializer();
+                Dictionary<string, object> d = js.DeserializeObject(j) as Dictionary<string, object>;
+                string city = Util.GetStr(d, "city"); if (city == "") city = Util.GetStr(d, "locality");
+                string sub = Util.GetStr(d, "principalSubdivision");
+                string ctry = Util.GetStr(d, "countryName");
+                string name = city;
+                if (sub != "" && sub != city) name = (name == "" ? sub : name + ", " + sub);
+                if (ctry != "") name = (name == "" ? ctry : name + " \u00B7 " + ctry);
+                return name == "" ? null : name;
+            }
+            catch { return null; }
         }
 
         async void LoadWeatherAsync()
@@ -3198,21 +3284,74 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                     try { geo = js.DeserializeObject(geoJson) as Dictionary<string, object>; } catch { }
                     if (geo == null) geo = new Dictionary<string, object>();
                 }
-                double lat, lon;
-                string fixedName;
-                LoadFixedLocation(out lat, out lon, out fixedName);
-
                 string ip = Util.GetStr(geo, "ip"); if (ip == "") ip = Util.GetStr(geo, "query");
                 string city = Util.GetStr(geo, "city");
                 string region = Util.GetStr(geo, "region"); if (region == "") region = Util.GetStr(geo, "regionName");
                 string country = Util.GetStr(geo, "country_name"); if (country == "") country = Util.GetStr(geo, "country");
                 string isp = Util.GetStr(geo, "org"); if (isp == "") isp = Util.GetStr(geo, "isp");
 
-                lblIp.Text = Lang.T("net.ip") + (ip != "" ? ip : "—");
-                lblIsp.Text = Lang.T("net.isp") + (isp != "" ? isp : "—");
+                lblIp.Text = Lang.T("net.ip") + (ip != "" ? ip : "\u2014");
+                lblIsp.Text = Lang.T("net.isp") + (isp != "" ? isp : "\u2014");
 
-                string cityText = fixedName;
+                double lat = 0, lon = 0;
+                string locName = null;
+                string locSrc = "";
+                bool haveLoc = TryLoadFixedLocation(out lat, out lon, out locName);
+                if (haveLoc) locSrc = "file";
+                // koordinat IP — cadangan + pembanding plausibilitas GPS (VPN/Wi-Fi mapping bisa salah,
+                // kasus nyata: GPS Windows bilang Dhaka-Bangladesh padahal IP Indonesia)
+                double ipLat = 0, ipLon = 0;
+                {
+                    double a2 = Util.GetNumD(geo, "latitude"); if (double.IsNaN(a2) || a2 == 0) a2 = Util.GetNumD(geo, "lat");
+                    double b2 = Util.GetNumD(geo, "longitude"); if (double.IsNaN(b2) || b2 == 0) b2 = Util.GetNumD(geo, "lon");
+                    if (a2 >= -90 && a2 <= 90 && b2 >= -180 && b2 <= 180 && (a2 != 0 || b2 != 0)) { ipLat = a2; ipLon = b2; }
+                }
+                bool haveIp = ipLat != 0 || ipLon != 0;
+                Dbg.Log("TEMP-wx ip=" + (haveIp ? ipLat.ToString("0.##", CultureInfo.InvariantCulture) + "," + ipLon.ToString("0.##", CultureInfo.InvariantCulture) : "(tidak ada)"));
+                if (!haveLoc)
+                {
+                    double dLat, dLon;
+                    if (TryGetDeviceLocation(out dLat, out dLon))
+                    {
+                        double dist = haveIp ? HaversineKm(dLat, dLon, ipLat, ipLon) : 0;
+                        if (haveIp && dist > 300)
+                        {
+                            Dbg.Log("TEMP-wx gps ditolak (" + dist.ToString("0") + " km dari IP) \u2014 pakai IP");
+                        }
+                        else
+                        {
+                            lat = dLat; lon = dLon; haveLoc = true; locSrc = "gps"; locName = null;
+                        }
+                    }
+                }
+                if (!haveLoc && haveIp)
+                {
+                    lat = ipLat; lon = ipLon; haveLoc = true; locSrc = "ip"; locName = null;
+                }
+                if (!haveLoc)
+                {
+                    lat = -6.8890; lon = 107.5950; locName = "Sukajadi, Bandung \u00B7 Indonesia"; locSrc = "default";
+                }
+                if (string.IsNullOrEmpty(locName))
+                {
+                    if (locSrc == "gps")
+                    {
+                        locName = await ReverseGeocodeAsync(lat, lon);
+                        if (string.IsNullOrEmpty(locName))
+                            locName = string.Format(CultureInfo.InvariantCulture, "{0} ({1:0.##}, {2:0.##})", Lang.T("wx.device"), lat, lon);
+                    }
+                    else
+                    {
+                        locName = city;
+                        if (locName != "" && region != "") locName += ", " + region;
+                        if (locName != "" && country != "") locName += " \u00B7 " + country;
+                        if (locName == "") locName = Lang.T("wx.device");
+                    }
+                }
+
+                string cityText = locName;
                 lblWxCity.Text = cityText;
+                Dbg.Log("TEMP-wx lokasi src=" + locSrc + " " + lat.ToString("0.####", CultureInfo.InvariantCulture) + "," + lon.ToString("0.####", CultureInfo.InvariantCulture));
 
                 string wUrl = string.Format(CultureInfo.InvariantCulture,
                     "https://api.open-meteo.com/v1/forecast?latitude={0}&longitude={1}" +
@@ -3272,7 +3411,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                 if (mmS != "") lblWxMinMax.Text = mmS;
                 lblWxUpdated.Text = Lang.T("wx.updated") + DateTime.Now.ToString("HH:mm:ss") + " · Open-Meteo";
 
-                string cityShort = fixedName.Split(new char[] { ',' })[0].Trim();   // lokasi tetap (bukan tebakan IP)
+                string cityShort = cityText.Split(new char[] { ',' })[0].Trim();   // lokasi perangkat (GPS) / manual / cadangan IP
                 lastWxShort = string.Format(CultureInfo.CurrentCulture, "{0} {1} · {2}", tempS.Replace(" °C", "°C"), descS, cityShort);
 
                 Dictionary<string, object> cache = new Dictionary<string, object>();

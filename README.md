@@ -8,7 +8,7 @@ Dashboard pemantau laptop **native Windows 11** (C# WinForms, .NET Framework baw
 |---|---|
 | ⚡ Baterai | %, watt real-time (mW dari WMI `BatteryStatus`), laju, tegangan, energi mWh, kesehatan (design capacity via `powercfg /batteryreport`), estimasi penuh/menyala |
 | 🌐 Internet | Pemakaian real-time ↓/↑ (WMI `MSFT_NetAdapterStatisticsSettingData`, 64-bit, hanya adapter fisik), total sesi & sejak nyala, puncak, grafik mini 3 menit, IP publik + ISP |
-| 🌧 Cuaca | Open-Meteo + lokasi tetap (Sukajadi, Bandung), cache `wx_cache.json`, refresh 5 mnt |
+| 🌧 Cuaca | Open-Meteo + **lokasi berprioritas**: `location.txt` (manual) → **GPS/Windows Location perangkat** (dipakai bila wajar, <300 km dari IP) → **geolokasi IP** → default Sukajadi. GPS Windows bisa salah saat VPN aktif (kasus nyata: melapor Dhaka padahal IP Bekasi) — uji plausibilitas Haversine otomatis menolaknya dan memakai IP. Reverse-geocode nama kota via BigDataCloud (id/en). Cache `wx_cache.json`, refresh 5 mnt |
 | 💻 Sistem | CPU (GetSystemTimes), RAM, uptime, disk C:, OS (registry build) |
 | 🌡 SUHU | Suhu SEMUA sensor yang bisa dibaca: CPU (Package + per-core), Intel GPU (IGCL bila tersedia), SSD NVMe (komposit), papan/baterai bila tersedia + **rata-rata keseluruhan** + baris "Kipas: x RPM · Daya CPU: x W" |
 | 💾 Penyimpanan | Semua drive + bar pemakaian berwarna, aktivitas disk real-time (perf counter) |
