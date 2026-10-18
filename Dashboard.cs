@@ -519,8 +519,11 @@ namespace ResourceMonitoring
             // ---- cuaca ----
             P("wx.loading", "Memuat lokasi\u2026", "Loading location\u2026");
             P("wx.reload", "\u21BB Muat ulang", "\u21BB Reload");
+            P("wx.feels", "Terasa seperti: {0:0}\u00B0", "Feels like: {0:0}\u00B0");
             P("wx.feels.init", "Terasa seperti: \u2014", "Feels like: \u2014");
+            P("wx.hum", "Kelembapan: {0:0}%", "Humidity: {0:0}%");
             P("wx.hum.init", "Kelembapan: \u2014", "Humidity: \u2014");
+            P("wx.wind", "Angin: {0:0.#} km/j", "Wind: {0:0.#} km/h");
             P("wx.wind.init", "Angin: \u2014", "Wind: \u2014");
             P("wx.today.init", "Hari ini: \u2014", "Today: \u2014");
             P("wx.today", "Hari ini: {0:0}\u00B0 / {1:0}\u00B0", "Today: {0:0}\u00B0 / {1:0}\u00B0");
@@ -3192,6 +3195,77 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             return false;
         }
 
+        /// ------------------------------------------------------------------
+        /// Memori lokasi per jaringan Wi-Fi (locations.json): "otomatis kedepannya" —
+        /// di rumah (SSID Meliyah.Market) terkunci koordinat rumah; di jaringan lain
+        /// GPS/IP dipakai dan, bila GPS wajar, direktif otomatis tersimpan untuk SSID itu.
+        /// ------------------------------------------------------------------
+        static string WifiLocFile()
+        {
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "locations.json");
+        }
+
+        static bool TryLoadWifiLocation(string ssid, out double lat, out double lon, out string name)
+        {
+            lat = 0; lon = 0; name = null;
+            try
+            {
+                string f = WifiLocFile();
+                if (!File.Exists(f) || string.IsNullOrEmpty(ssid)) return false;
+                JavaScriptSerializer js = new JavaScriptSerializer();
+                Dictionary<string, object> d = js.DeserializeObject(File.ReadAllText(f)) as Dictionary<string, object>;
+                if (d == null || !d.ContainsKey(ssid)) return false;
+                Dictionary<string, object> e = d[ssid] as Dictionary<string, object>;
+                if (e == null) return false;
+                double a = Util.GetNumD(e, "lat"), b = Util.GetNumD(e, "lon");
+                if (double.IsNaN(a) || double.IsNaN(b) || a < -90 || a > 90 || b < -180 || b > 180) return false;
+                lat = a; lon = b;
+                if (e.ContainsKey("name")) name = Convert.ToString(e["name"]);
+                if (string.IsNullOrEmpty(name)) name = null;
+                return true;
+            }
+            catch { return false; }
+        }
+
+        static void SaveWifiLocation(string ssid, double lat, double lon, string name)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(ssid)) return;
+                string f = WifiLocFile();
+                JavaScriptSerializer js = new JavaScriptSerializer();
+                Dictionary<string, object> d = new Dictionary<string, object>();
+                if (File.Exists(f))
+                {
+                    try
+                    {
+                        Dictionary<string, object> rd = js.DeserializeObject(File.ReadAllText(f)) as Dictionary<string, object>;
+                        if (rd != null) d = rd;
+                    }
+                    catch { }
+                }
+                string cur = Math.Round(lat, 5).ToString(CultureInfo.InvariantCulture) + "," + Math.Round(lon, 5).ToString(CultureInfo.InvariantCulture);
+                try
+                {
+                    Dictionary<string, object> pe = d.ContainsKey(ssid) ? d[ssid] as Dictionary<string, object> : null;
+                    if (pe != null)
+                    {
+                        string prev = Convert.ToString(pe.ContainsKey("lat") ? pe["lat"] : null) + "," + Convert.ToString(pe.ContainsKey("lon") ? pe["lon"] : null);
+                        if (prev == cur) return;   // tidak berubah, tidak perlu tulis
+                    }
+                }
+                catch { }
+                Dictionary<string, object> e = new Dictionary<string, object>();
+                e["lat"] = Math.Round(lat, 5);
+                e["lon"] = Math.Round(lon, 5);
+                if (!string.IsNullOrEmpty(name)) e["name"] = name;
+                d[ssid] = e;
+                File.WriteAllText(f, js.Serialize(d));
+                Dbg.Log("TEMP-wx wifi-lokasi disimpan: " + ssid);
+            }
+            catch { }
+        }
+
         /// jarak lingkaran besar (km) — untuk uji plausibilitas GPS vs IP
         static double HaversineKm(double a1, double b1, double a2, double b2)
         {
@@ -3312,6 +3386,18 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                 string locSrc = "";
                 bool haveLoc = TryLoadFixedLocation(out lat, out lon, out locName);
                 if (haveLoc) locSrc = "file";
+                // memori lokasi per jaringan Wi-Fi (rumah/kantor dikenali otomatis)
+                string ssidNow = null;
+                try { ssidNow = GetSsidCached(); } catch { }
+                if (!haveLoc)
+                {
+                    string wn;
+                    double wa, wb;
+                    if (TryLoadWifiLocation(ssidNow, out wa, out wb, out wn))
+                    {
+                        lat = wa; lon = wb; haveLoc = true; locSrc = "wifi"; locName = wn;
+                    }
+                }
                 // koordinat IP — cadangan + pembanding plausibilitas GPS (VPN/Wi-Fi mapping bisa salah,
                 // kasus nyata: GPS Windows bilang Dhaka-Bangladesh padahal IP Indonesia)
                 double ipLat = 0, ipLon = 0;
@@ -3365,6 +3451,8 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
 
                 string cityText = locName;
                 lblWxCity.Text = cityText;
+                // auto-belajar: GPS yang wajar (dekat IP) tersimpan untuk SSID ini -> kedepannya otomatis
+                if (locSrc == "gps" && !string.IsNullOrEmpty(ssidNow)) SaveWifiLocation(ssidNow, lat, lon, locName);
                 Dbg.Log("TEMP-wx lokasi src=" + locSrc + " " + lat.ToString("0.####", CultureInfo.InvariantCulture) + "," + lon.ToString("0.####", CultureInfo.InvariantCulture));
 
                 string wUrl = string.Format(CultureInfo.InvariantCulture,
@@ -3400,9 +3488,9 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
 
                 string tempS = double.IsNaN(t) ? "—" : string.Format(CultureInfo.CurrentCulture, "{0:0} °C", t);
                 string descS = double.IsNaN(code) ? "—" : (weatherCodes.ContainsKey((int)code) ? weatherCodes[(int)code] : "Kode " + (int)code);
-                string feelsS = double.IsNaN(feels) ? Lang.T("wx.feels.init") : string.Format(CultureInfo.CurrentCulture, Lang.T("wx.feels.init"), feels);
-                string humS = double.IsNaN(hum) ? Lang.T("wx.hum.init") : string.Format(CultureInfo.CurrentCulture, Lang.T("wx.hum.init"), hum);
-                string windS = double.IsNaN(wind) ? Lang.T("wx.wind.init") : string.Format(CultureInfo.CurrentCulture, Lang.T("wx.wind.init"), wind);
+                string feelsS = double.IsNaN(feels) ? Lang.T("wx.feels.init") : string.Format(CultureInfo.CurrentCulture, Lang.T("wx.feels"), feels);
+                string humS = double.IsNaN(hum) ? Lang.T("wx.hum.init") : string.Format(CultureInfo.CurrentCulture, Lang.T("wx.hum"), hum);
+                string windS = double.IsNaN(wind) ? Lang.T("wx.wind.init") : string.Format(CultureInfo.CurrentCulture, Lang.T("wx.wind"), wind);
                 string mmS = "";
                 if (day != null)
                 {

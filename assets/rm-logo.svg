@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 220" width="920" height="220">
+  <!-- Horizontal Lockup: Resource Monitoring -->
+  <rect x="0" y="0" width="920" height="220" rx="28" ry="28" fill="#181822" />
+  <rect x="6" y="6" width="908" height="208" rx="24" ry="24" fill="#202230" stroke="#484E64" stroke-width="2" />
+
+  <!-- Scaled Icon Mark (160x160 at x=30, y=30) -->
+  <g transform="translate(30, 30) scale(0.3125)">
+    <rect x="16" y="16" width="480" height="480" rx="106" ry="106" fill="#181822" />
+    <rect x="28" y="28" width="456" height="456" rx="96" ry="96" fill="#2C2F3E" stroke="#484E64" stroke-width="8" />
+    <circle cx="256" cy="248" r="184" fill="#202230" opacity="0.65" />
+
+    <path d="M 146.0 347.0 A 148 148 0 0 1 136.3 161.0"
+          fill="none" stroke="#73DEA0" stroke-width="38" stroke-linecap="round" />
+    <path d="M 164.9 131.4 A 148 148 0 0 1 347.1 131.4"
+          fill="none" stroke="#6EBEFF" stroke-width="38" stroke-linecap="round" />
+    <path d="M 375.7 161.0 A 148 148 0 0 1 366.0 347.0"
+          fill="none" stroke="#FFB05C" stroke-width="38" stroke-linecap="round" />
+
+    <line x1="256" y1="242" x2="336" y2="170"
+          stroke="#6EBEFF" stroke-width="22" stroke-linecap="round" />
+
+    <line x1="194" y1="204" x2="212" y2="204" stroke="#BCC2D6" stroke-width="10" stroke-linecap="round" />
+    <line x1="190" y1="236" x2="212" y2="236" stroke="#BCC2D6" stroke-width="10" stroke-linecap="round" />
+    <line x1="194" y1="268" x2="212" y2="268" stroke="#BCC2D6" stroke-width="10" stroke-linecap="round" />
+
+    <rect x="224" y="152" width="64" height="196" rx="32" ry="32" fill="#FFFFFF" />
+    <circle cx="256" cy="348" r="58" fill="#FFFFFF" />
+    <rect x="238" y="168" width="36" height="180" rx="18" ry="18" fill="#181822" />
+    <circle cx="256" cy="348" r="42" fill="#181822" />
+    <rect x="245" y="198" width="22" height="150" rx="11" ry="11" fill="#FF7676" />
+    <circle cx="256" cy="348" r="30" fill="#FF7676" />
+    <circle cx="246" cy="338" r="8" fill="#FFFFFF" opacity="0.65" />
+  </g>
+
+  <!-- Wordmark -->
+  <text x="222" y="108"
+        font-family="Segoe UI, Inter, sans-serif"
+        font-size="44"
+        font-weight="700"
+        letter-spacing="3.5"
+        fill="#FFFFFF">RESOURCE MONITORING</text>
+
+  <!-- Accent status bar + subtitle -->
+  <rect x="224" y="126" width="56" height="5" rx="2.5" fill="#6EBEFF" />
+  <rect x="288" y="126" width="36" height="5" rx="2.5" fill="#73DEA0" />
+  <rect x="332" y="126" width="24" height="5" rx="2.5" fill="#FFB05C" />
+  <rect x="364" y="126" width="16" height="5" rx="2.5" fill="#FF7676" />
+
+  <text x="222" y="164"
+        font-family="Segoe UI, Inter, sans-serif"
+        font-size="21"
+        font-weight="500"
+        letter-spacing="1.8"
+        fill="#BCC2D6">laptop · battery · network · temperature</text>
+</svg>

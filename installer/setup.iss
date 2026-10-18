@@ -12,6 +12,7 @@ OutputBaseFilename=ResourceMonitoring-Setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\assets\rm-icon.ico
 UninstallDisplayName=Resource Monitoring
 UninstallDisplayIcon={app}\ResourceMonitoring.exe
 

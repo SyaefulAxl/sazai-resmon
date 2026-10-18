@@ -13,6 +13,7 @@ $facade = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Runtime.dll"
 $a = New-Object System.Collections.ArrayList
 [void]$a.AddRange(@("/nologo", "/codepage:65001", "/target:winexe", "/win32manifest:$dir\app.manifest",
     "/out:$dir\ResourceMonitoring.exe",
+    "/win32icon:$dir\assets\rm-icon.ico",
     "/r:System.dll", "/r:System.Core.dll", "/r:System.Drawing.dll", "/r:System.Windows.Forms.dll",
     "/r:System.Management.dll", "/r:System.Web.Extensions.dll", "/r:System.Net.Http.dll",
     "/r:$dir\LibreHardwareMonitorLib.dll"))

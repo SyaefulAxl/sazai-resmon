@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- App 1: Resource Monitoring — Exact Palette from Dashboard.cs -->
+  <!-- Back: #181822 (24,24,34) | Card: #2C2F3E (44,47,62) | Border: #484E64 (72,78,100) -->
+  <!-- CAccent: #6EBEFF | CGood: #73DEA0 | CWarn: #FFB05C | CBad: #FF7676 | CSub: #BCC2D6 -->
+
+  <!-- Rounded-square base (~22% corner radius) -->
+  <rect x="16" y="16" width="480" height="480" rx="106" ry="106" fill="#181822" />
+  <rect x="28" y="28" width="456" height="456" rx="96" ry="96" fill="#202230" stroke="#484E64" stroke-width="6" />
+
+  <!-- Subtle inner dial plate -->
+  <circle cx="256" cy="248" r="184" fill="#2C2F3E" opacity="0.55" />
+
+  <!-- 3-Zone Resource Gauge Arc (cx=256, cy=248, r=148) -->
+  <!-- Left zone: CGood #73DEA0 (138 deg to 216 deg) -->
+  <path d="M 146.0 347.0 A 148 148 0 0 1 136.3 161.0"
+        fill="none" stroke="#73DEA0" stroke-width="36" stroke-linecap="round" />
+
+  <!-- Top zone: CAccent #6EBEFF (232 deg to 308 deg) -->
+  <path d="M 164.9 131.4 A 148 148 0 0 1 347.1 131.4"
+        fill="none" stroke="#6EBEFF" stroke-width="36" stroke-linecap="round" />
+
+  <!-- Right zone: CWarn #FFB05C (324 deg to 402 deg) -->
+  <path d="M 375.7 161.0 A 148 148 0 0 1 366.0 347.0"
+        fill="none" stroke="#FFB05C" stroke-width="36" stroke-linecap="round" />
+
+  <!-- Gauge needle pointing toward active upper-right zone -->
+  <line x1="256" y1="242" x2="336" y2="170"
+        stroke="#6EBEFF" stroke-width="22" stroke-linecap="round" />
+
+  <!-- Thermometer degree ticks (CSub #BCC2D6) -->
+  <line x1="194" y1="204" x2="212" y2="204" stroke="#BCC2D6" stroke-width="10" stroke-linecap="round" />
+  <line x1="190" y1="236" x2="212" y2="236" stroke="#BCC2D6" stroke-width="10" stroke-linecap="round" />
+  <line x1="194" y1="268" x2="212" y2="268" stroke="#BCC2D6" stroke-width="10" stroke-linecap="round" />
+
+  <!-- Central Thermometer Outer Shell (CText #FFFFFF) -->
+  <rect x="224" y="152" width="64" height="196" rx="32" ry="32" fill="#FFFFFF" />
+  <circle cx="256" cy="348" r="58" fill="#FFFFFF" />
+
+  <!-- Thermometer Inner Channel (#181822) -->
+  <rect x="238" y="168" width="36" height="180" rx="18" ry="18" fill="#181822" />
+  <circle cx="256" cy="348" r="42" fill="#181822" />
+
+  <!-- Mercury Column & Bulb (CBad #FF7676 + CAccent collar) -->
+  <rect x="245" y="198" width="22" height="150" rx="11" ry="11" fill="#FF7676" />
+  <circle cx="256" cy="348" r="30" fill="#FF7676" />
+  <circle cx="246" cy="338" r="8" fill="#FFFFFF" opacity="0.65" />
+</svg>
