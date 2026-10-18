@@ -40,6 +40,24 @@ Dashboard pemantau laptop **native Windows 11** (C# WinForms, .NET Framework baw
 - **ZIP portable** — ekstrak, jalankan `ResourceMonitoring.exe`.
 - (Tidak ada MSI: pembuat MSI butuh WiX/SDK; installer EXE Inno sudah setara untuk pengguna umum.)
 
+## Cara download & update dari GitHub Releases (panduan singkat)
+
+**GitHub Releases = "rak produk jadi"** dari proyek ini — tempat file siap-pakai diunduh. Halaman: `github.com/SyaefulAxl/resourcemonitoring/releases`.
+
+1. **Cari versi terbaru**: buka halaman Releases → rilis **paling atas** dengan label hijau **Latest** adalah yang disarankan. Judulnya memuat versi + ringkasan perubahan (changelog ada di bawah judul, dua bahasa).
+2. **Pilih file (bagian Assets)**:
+   - `ResourceMonitoring-Setup.exe` — ⭐ untuk hampir semua orang. Double-klik → wizard (pilih bahasa ID/EN, centang autostart) → Install.
+   - `ResourceMonitoring-Portable.zip` — ekstrak ke folder/USB → jalankan `ResourceMonitoring.exe` (tidak menyentuh sistem).
+   - `Source code` — abaikan (untuk developer).
+3. **SmartScreen**: jika muncul "Windows protected your PC" → **More info → Run anyway** (normal untuk exe tanpa sertifikat digital berbayar; sumbernya repo ini sendiri).
+4. **Update**: unduh `Setup.exe` versi Latest → installment menimpa versi lama, pengaturan terbawa. Cek versi terpasang di footer dashboard.
+5. **Notifikasi versi baru**: tombol **Watch** (kanan atas halaman repo) → **Custom** → centang **Releases**.
+6. Istilah: **Repo** = gudang proyek (kode/README) · **Releases** = file unduhan · **Assets** = daftar file dalam satu rilis · **Tag vX.Y.Z** = nomor versi (makin besar = makin baru).
+
+*EN (short): GitHub Releases is this project's download page. Open the repo's Releases page → pick the newest release marked **Latest** → download either `ResourceMonitoring-Setup.exe` (installer; if SmartScreen warns, More info → Run anyway) or `ResourceMonitoring-Portable.zip` (extract & run). To get notified of new versions: Watch → Custom → Releases. Updates: run the newest Setup.exe over the old install; check the installed version in the dashboard footer.*
+
+
+
 ## Kartu SUHU & kolektor
 
 - WMI standar di kebanyakan laptop modern tidak mengekspos suhu: `MSAcpi_ThermalZoneTemperature` di-tolak (Access denied) untuk proses biasa dan bernilai 0 walau admin; `MSFT_StorageReliabilityCounter` ditolak; `BatteryStatus.Temperature` sering kosong. Solusi: **kolektor Administrator** (exe yang sama, argumen `--tempsvc`) membaca semua sensor via **LibreHardwareMonitorLib** (ring-0, + **PawnIO**; IGCL untuk Intel GPU) lalu menulis `temps.json` tiap 5 detik; dashboard (proses biasa) hanya membaca file itu.
