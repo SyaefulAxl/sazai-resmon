@@ -662,13 +662,42 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
 
     static class Util
     {
+        // tema terminal aktif bila theme.txt di folder aplikasi berisi "terminal"
+        public static bool TerminalTheme()
+        {
+            try
+            {
+                string tf = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "theme.txt");
+                return File.Exists(tf) && File.ReadAllText(tf).Trim().ToLower() == "terminal";
+            }
+            catch { return false; }
+        }
+
         static float scale = 0f;
 
         // faktor penyesuaian tambahan agar jendela desain tidak menghabiskan hampir seluruh
         // layar pada DPI tinggi (mis. 200%); 1.0 = ukuran DPI penuh
+        static string fontName;
+
+        // Font utama tema terminal: JetBrains Mono bila terinstal, lalu Cascadia Mono, lalu Consolas.
+        public static string FontName()
+        {
+            if (fontName != null) return fontName;
+            string[] prefer = new string[] { "JetBrains Mono", "Cascadia Mono", "Consolas" };
+            fontName = "Segoe UI";
+            try
+            {
+                foreach (FontFamily ff in FontFamily.Families)
+                    foreach (string n in prefer)
+                        if (ff.Name == n) { fontName = n; return fontName; }
+            }
+            catch { }
+            return fontName;
+        }
+
         public static Font Fnt(float pt, FontStyle st)
         {
-            return new Font("Segoe UI", S(pt) * 4f / 3f, st, GraphicsUnit.Pixel);
+            return new Font(FontName(), S(pt) * 4f / 3f, st, GraphicsUnit.Pixel);
         }
 
         // faktor DPI sistem (1.0 = 96 DPI, 2.0 = 192 DPI); aplikasi DPI-aware lewat app.manifest
@@ -1014,9 +1043,9 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             ShowInTaskbar = false;
             TopMost = true;
             StartPosition = FormStartPosition.Manual;
-            BackColor = Color.FromArgb(24, 24, 34);
+            BackColor = Util.TerminalTheme() ? Color.FromArgb(16, 20, 16) : Color.FromArgb(24, 24, 34);
             Size = new Size(Util.S(1400), Util.S(46));
-            Font = new Font("Segoe UI", Util.S(9f) * 4f / 3f, FontStyle.Bold, GraphicsUnit.Pixel);
+            Font = new Font(Util.FontName(), Util.S(9f) * 4f / 3f, FontStyle.Bold, GraphicsUnit.Pixel);
             DoubleBuffered = true;
             AutoScaleMode = AutoScaleMode.None;
 
@@ -1058,7 +1087,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             l.Location = new Point(Util.S(x), Util.S(10));
             l.ForeColor = c;
             l.BackColor = Color.Transparent;
-            l.Font = new Font("Segoe UI", Util.S(9f) * 4f / 3f, FontStyle.Bold, GraphicsUnit.Pixel);
+            l.Font = new Font(Util.FontName(), Util.S(9f) * 4f / 3f, FontStyle.Bold, GraphicsUnit.Pixel);
             Controls.Add(l);
             return l;
         }
@@ -1192,6 +1221,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
         IntPtr taskbarHwnd = IntPtr.Zero;
         uint ownPid;
         bool light = false;
+    bool termTheme = false; // tema terminal (theme.txt berisi "terminal") — palet hijau fosfor ala SAZAI terminal
         DateTime themeAt = DateTime.MinValue;
         int dpi = 96;
         Font font;
@@ -1250,13 +1280,13 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             base.Dispose(disposing);
         }
 
-        // ---------- warna (menyesuaikan tema gelap/terang taskbar) ----------
-        Color ColText { get { return light ? Color.FromArgb(28, 28, 28) : Color.FromArgb(245, 245, 245); } }
-        Color ColDown { get { return light ? Color.FromArgb(13, 122, 62) : Color.FromArgb(118, 228, 166); } }
-        Color ColUp { get { return light ? Color.FromArgb(22, 86, 196) : Color.FromArgb(124, 192, 255); } }
-        Color ColGood { get { return light ? Color.FromArgb(13, 122, 62) : Color.FromArgb(118, 228, 166); } }
-        Color ColBad { get { return light ? Color.FromArgb(186, 28, 28) : Color.FromArgb(255, 128, 128); } }
-        Color ColWarm { get { return light ? Color.FromArgb(168, 92, 0) : Color.FromArgb(255, 200, 100); } }
+        // ---------- warna (menyesuaikan tema gelap/terang taskbar; theme.txt "terminal" = palet fosfor SAZAI) ----------
+        Color ColText { get { if (termTheme) return Color.FromArgb(224, 228, 220); return light ? Color.FromArgb(28, 28, 28) : Color.FromArgb(245, 245, 245); } }
+        Color ColDown { get { if (termTheme) return Color.FromArgb(107, 251, 154); return light ? Color.FromArgb(13, 122, 62) : Color.FromArgb(118, 228, 166); } }
+        Color ColUp { get { if (termTheme) return Color.FromArgb(172, 207, 184); return light ? Color.FromArgb(22, 86, 196) : Color.FromArgb(124, 192, 255); } }
+        Color ColGood { get { if (termTheme) return Color.FromArgb(107, 251, 154); return light ? Color.FromArgb(13, 122, 62) : Color.FromArgb(118, 228, 166); } }
+        Color ColBad { get { if (termTheme) return Color.FromArgb(255, 180, 171); return light ? Color.FromArgb(186, 28, 28) : Color.FromArgb(255, 128, 128); } }
+        Color ColWarm { get { if (termTheme) return Color.FromArgb(255, 220, 150); return light ? Color.FromArgb(168, 92, 0) : Color.FromArgb(255, 200, 100); } }
         Color ColPct { get { return BattState == 2 ? ColBad : (BattState == 1 ? ColGood : ColText); } }
         Color ColCpu { get { return CpuState == 2 ? ColBad : (CpuState == 1 ? ColWarm : ColText); } }
         Color ColWatt { get { return BattState == 2 ? ColBad : (BattState == 1 ? ColGood : ColWarm); } }
@@ -1271,7 +1301,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
         {
             if (font != null && Math.Abs(fontEm - em) < 0.25f) return;
             Font old = font;
-            font = new Font("Segoe UI Semibold", em, FontStyle.Regular, GraphicsUnit.Pixel);
+            font = new Font(Util.FontName(), em, FontStyle.Regular, GraphicsUnit.Pixel);
             fontEm = em;
             if (old != null) old.Dispose();
         }
@@ -1280,6 +1310,13 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
         {
             if ((DateTime.Now - themeAt).TotalSeconds < 5) return;
             themeAt = DateTime.Now;
+            try
+            {
+                // tema terminal: theme.txt di folder aplikasi berisi "terminal" (palet fosfor SAZAI)
+                string tfile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "theme.txt");
+                termTheme = File.Exists(tfile) && File.ReadAllText(tfile).Trim().ToLower() == "terminal";
+            }
+            catch { }
             try
             {
                 object v = Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "SystemUsesLightTheme", 0);
@@ -1554,7 +1591,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             l.Location = new Point(Util.S(x), Util.S(y));
             l.ForeColor = c;
             l.BackColor = Color.Transparent;
-            l.Font = new Font("Segoe UI", Util.S(sz) * 4f / 3f, st, GraphicsUnit.Pixel);
+            l.Font = new Font(Util.FontName(), Util.S(sz) * 4f / 3f, st, GraphicsUnit.Pixel);
             Controls.Add(l);
             return l;
         }
@@ -1565,7 +1602,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             b.FlatAppearance.BorderSize = 0;
             b.BackColor = Color.FromArgb(96, 165, 250);
             b.ForeColor = Color.FromArgb(14, 18, 32);
-            b.Font = new Font("Segoe UI", Util.S(9.5f) * 4f / 3f, FontStyle.Bold, GraphicsUnit.Pixel);
+            b.Font = new Font(Util.FontName(), Util.S(9.5f) * 4f / 3f, FontStyle.Bold, GraphicsUnit.Pixel);
             b.Cursor = Cursors.Hand;
             b.FlatAppearance.MouseOverBackColor = Color.FromArgb(130, 185, 255);
         }
@@ -1643,13 +1680,23 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
     public class DashboardForm : Form
     {
         // ---------- palet ----------
-        static readonly Color CText = Color.White;
-        static readonly Color CSub = Color.FromArgb(188, 194, 214);
-        static readonly Color CDim = Color.FromArgb(160, 166, 190);
-        static readonly Color CAccent = Color.FromArgb(110, 190, 255);
-        static readonly Color CGood = Color.FromArgb(115, 222, 160);
-        static readonly Color CWarn = Color.FromArgb(255, 176, 92);
-        static readonly Color CBad = Color.FromArgb(255, 118, 118);
+        // tema terminal (theme.txt "terminal"): palet fosfor SAZAI ala keluarga terminal
+        static bool TermTheme()
+        {
+            try
+            {
+                string tf = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "theme.txt");
+                return File.Exists(tf) && File.ReadAllText(tf).Trim().ToLower() == "terminal";
+            }
+            catch { return false; }
+        }
+        static Color CText { get { return TermTheme() ? Color.FromArgb(224, 228, 220) : Color.White; } }
+        static Color CSub { get { return TermTheme() ? Color.FromArgb(172, 207, 184) : Color.FromArgb(188, 194, 214); } }
+        static Color CDim { get { return TermTheme() ? Color.FromArgb(134, 148, 134) : Color.FromArgb(160, 166, 190); } }
+        static Color CAccent { get { return TermTheme() ? Color.FromArgb(107, 251, 154) : Color.FromArgb(110, 190, 255); } }
+        static Color CGood { get { return TermTheme() ? Color.FromArgb(107, 251, 154) : Color.FromArgb(115, 222, 160); } }
+        static Color CWarn { get { return TermTheme() ? Color.FromArgb(255, 220, 150) : Color.FromArgb(255, 176, 92); } }
+        static Color CBad { get { return TermTheme() ? Color.FromArgb(255, 180, 171) : Color.FromArgb(255, 118, 118); } }
 
         // ---------- label ----------
         Label lblClock;
@@ -1793,10 +1840,10 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            BackColor = Color.FromArgb(24, 24, 34);
+            BackColor = Util.TerminalTheme() ? Color.FromArgb(16, 20, 16) : Color.FromArgb(24, 24, 34);
             DoubleBuffered = true;
             AutoScaleMode = AutoScaleMode.None;   // semua ukuran diskalakan eksplisit lewat Util.S (DPI sistem)
-            Font = new Font("Segoe UI", Util.S(9.75f) * 4f / 3f, FontStyle.Regular, GraphicsUnit.Pixel);
+            Font = new Font(Util.FontName(), Util.S(9.75f) * 4f / 3f, FontStyle.Regular, GraphicsUnit.Pixel);
 
             BuildWeatherCodes();
             BuildUi();
@@ -1872,7 +1919,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             l.Location = new Point(Util.S(x), Util.S(y));
             l.ForeColor = c;
             l.BackColor = Color.Transparent;
-            l.Font = new Font("Segoe UI", Util.S(size) * 4f / 3f, st, GraphicsUnit.Pixel);
+            l.Font = new Font(Util.FontName(), Util.S(size) * 4f / 3f, st, GraphicsUnit.Pixel);
             parent.Controls.Add(l);
             return l;
         }
@@ -2033,7 +2080,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
             b.FlatAppearance.BorderSize = 0;
             b.BackColor = Color.FromArgb(96, 165, 250);
             b.ForeColor = Color.FromArgb(14, 18, 32);
-            b.Font = new Font("Segoe UI", Util.S(9.5f) * 4f / 3f, FontStyle.Bold, GraphicsUnit.Pixel);
+            b.Font = new Font(Util.FontName(), Util.S(9.5f) * 4f / 3f, FontStyle.Bold, GraphicsUnit.Pixel);
             b.Cursor = Cursors.Hand;
             b.FlatAppearance.MouseOverBackColor = Color.FromArgb(130, 185, 255);
         }
@@ -2406,7 +2453,7 @@ P("gpu.loading", "GPU: memuat\u2026", "GPU: loading\u2026");
                     using (SolidBrush b = new SolidBrush(bg)) g.FillRectangle(b, 0, 0, n, n);
                     string s = pct.ToString();
                     float em = s.Length >= 3 ? n * 0.50f : n * 0.70f;
-                    using (Font f = new Font("Segoe UI", em, FontStyle.Bold, GraphicsUnit.Pixel))
+                    using (Font f = new Font(Util.FontName(), em, FontStyle.Bold, GraphicsUnit.Pixel))
                     using (StringFormat sfm = (StringFormat)StringFormat.GenericTypographic.Clone())
                     {
                         sfm.Alignment = StringAlignment.Center;
